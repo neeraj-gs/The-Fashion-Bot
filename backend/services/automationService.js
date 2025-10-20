@@ -849,94 +849,6 @@ class StanleyAutomation extends BaseAutomation {
   }
 }
 
-// ============================================================================
-// OTHER STORE AUTOMATIONS (Templates)
-// ============================================================================
-
-// Nike Automation
-class NikeAutomation extends BaseAutomation {
-  async run() {
-    try {
-      await this.init()
-      this.log('Starting Nike automation')
-      await this.page.goto(this.orderData.productUrl, { waitUntil: 'networkidle2' })
-
-      this.log('Nike automation - implement specific logic here')
-      this.log('Use TonesFashion as reference and adapt selectors for Nike')
-
-      await sleep(5000)
-      return { success: true, message: 'Nike automation template' }
-    } catch (error) {
-      this.log(`Error: ${error.message}`)
-      throw error
-    } finally {
-      await this.cleanup()
-    }
-  }
-}
-
-// Adidas Automation
-class AdidasAutomation extends BaseAutomation {
-  async run() {
-    try {
-      await this.init()
-      this.log('Starting Adidas automation')
-      await this.page.goto(this.orderData.productUrl, { waitUntil: 'networkidle2' })
-
-      this.log('Adidas automation - implement specific logic here')
-
-      await sleep(5000)
-      return { success: true, message: 'Adidas automation template' }
-    } catch (error) {
-      this.log(`Error: ${error.message}`)
-      throw error
-    } finally {
-      await this.cleanup()
-    }
-  }
-}
-
-// Amazon Automation
-class AmazonAutomation extends BaseAutomation {
-  async run() {
-    try {
-      await this.init()
-      this.log('Starting Amazon automation')
-      await this.page.goto(this.orderData.productUrl, { waitUntil: 'networkidle2' })
-
-      this.log('Amazon automation - implement specific logic here')
-
-      await sleep(5000)
-      return { success: true, message: 'Amazon automation template' }
-    } catch (error) {
-      this.log(`Error: ${error.message}`)
-      throw error
-    } finally {
-      await this.cleanup()
-    }
-  }
-}
-
-// Generic Store Automation
-class GenericStoreAutomation extends BaseAutomation {
-  async run() {
-    try {
-      await this.init()
-      this.log('Starting generic store automation')
-      await this.page.goto(this.orderData.productUrl, { waitUntil: 'networkidle2' })
-
-      this.log('Generic store automation - implement specific logic for your store')
-
-      await sleep(5000)
-      return { success: true, message: 'Generic automation template' }
-    } catch (error) {
-      this.log(`Error: ${error.message}`)
-      throw error
-    } finally {
-      await this.cleanup()
-    }
-  }
-}
 
 // ============================================================================
 // FACTORY FUNCTION
@@ -950,14 +862,8 @@ export const getAutomationService = (storeName, orderData, user) => {
     case 'TONESFASHION':
     case 'TONES':
       return new TonesFashionAutomation(orderData, user)
-    case 'NIKE':
-      return new NikeAutomation(orderData, user)
-    case 'ADIDAS':
-      return new AdidasAutomation(orderData, user)
-    case 'AMAZON':
-      return new AmazonAutomation(orderData, user)
     default:
-      return new GenericStoreAutomation(orderData, user)
+      return null; // Return null if store name is not found
   }
 }
 
