@@ -1,8 +1,5 @@
 import express from 'express'
 import {
-  updateProfile,
-  updateShippingAddress,
-  updatePaymentDetails,
   updateAllDetails,
   getUserDetails
 } from '../controllers/userController.js'

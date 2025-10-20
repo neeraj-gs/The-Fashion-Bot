@@ -5,7 +5,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     lowercase: true,
     trim: true
   },
@@ -115,8 +114,8 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Index for faster queries
-userSchema.index({ email: 1 })
+// Index for faster queries (unique for email)
+userSchema.index({ email: 1 }, { unique: true })
 
 const User = mongoose.model('User', userSchema)
 
