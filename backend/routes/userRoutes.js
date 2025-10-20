@@ -16,11 +16,6 @@ router.use(authMiddleware)
 // Get user details
 router.get('/details', getUserDetails)
 
-// Update specific sections
-router.put('/profile', updateProfile)
-router.put('/shipping', updateShippingAddress)
-router.put('/payment', updatePaymentDetails)
-
 // Update all details at once
 router.put('/details', updateAllDetails)
 

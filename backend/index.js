@@ -36,23 +36,6 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('MongoDB connection error:', err)
   })
 
-// Health check endpoint
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Fashion Bot API is running',
-    version: '1.0.0'
-  })
-})
-
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    status: 'healthy',
-    timestamp: new Date().toISOString()
-  })
-})
-
 // API Routes
 app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
@@ -78,6 +61,4 @@ app.use((err, req, res, next) => {
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`)
-  console.log(`Health check: http://localhost:${port}/health`)
-  console.log(`API Base URL: http://localhost:${port}/api`)
 })

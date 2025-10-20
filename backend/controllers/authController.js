@@ -5,10 +5,10 @@ import { generateToken } from '../middleware/auth.js'
 // Signup Controller
 export const signup = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, phone } = req.body
+    const { email, password } = req.body
 
     // Validate required fields
-    if (!email || !password || !firstName || !lastName || !phone) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields'
@@ -32,9 +32,6 @@ export const signup = async (req, res) => {
     const user = new User({
       email: email.toLowerCase(),
       password: hashedPassword,
-      firstName,
-      lastName,
-      phone
     })
 
     await user.save()
