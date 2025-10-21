@@ -16,9 +16,7 @@ import {
 } from "lucide-react"
 
 const checkoutSchema = z.object({
-  store: z.enum(["Stanley", "TonesFashion"], {
-    errorMap: () => ({ message: "Please select a valid store" }),
-  }),
+  store: z.enum(["Stanley", "TonesFashion"]),
   productUrl: z.string().url("Please enter a valid URL"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   size: z.string().optional(),
@@ -51,7 +49,7 @@ export function CheckoutPage() {
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {}
-        error.errors.forEach((err) => {
+        error.issues.forEach((err) => {
           if (err.path[0]) {
             fieldErrors[err.path[0] as string] = err.message
           }

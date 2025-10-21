@@ -1,29 +1,10 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useRecoilState } from "recoil"
-import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { userAPI } from "@/lib/api"
 import { userState } from "@/store/authState"
 import { AlertCircle, Sparkles, User, MapPin, CreditCard } from "lucide-react"
-
-const onboardingSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  addressLine1: z.string().min(1, "Address is required"),
-  addressLine2: z.string().optional(),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  zipCode: z.string().min(5, "ZIP code must be at least 5 digits"),
-  country: z.string().min(1, "Country is required"),
-  cardNumber: z.string().min(13, "Card number must be at least 13 digits"),
-  cardHolderName: z.string().min(1, "Cardholder name is required"),
-  expiryMonth: z.string().regex(/^(0[1-9]|1[0-2])$/, "Invalid month (01-12)"),
-  expiryYear: z.string().regex(/^\d{2}$/, "Invalid year (YY format)"),
-  cvv: z.string().regex(/^\d{3,4}$/, "CVV must be 3-4 digits"),
-  sameAsShipping: z.boolean(),
-})
 
 export function OnboardingPage() {
   const navigate = useNavigate()

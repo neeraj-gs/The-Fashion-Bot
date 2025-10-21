@@ -18,6 +18,9 @@ export const updateAllDetails = async (req, res) => {
     if (shippingAddress) updateData.shippingAddress = shippingAddress
     if (paymentDetails) updateData.paymentDetails = paymentDetails
 
+    // Mark user as onboarded when they update their details
+    updateData.onBoarded = true
+
     const user = await User.findByIdAndUpdate(
       req.userId,
       { $set: updateData },

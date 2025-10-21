@@ -15,17 +15,14 @@ const userSchema = new mongoose.Schema({
   },
   firstName: {
     type: String,
-    required: true,
     trim: true
   },
   lastName: {
     type: String,
-    required: true,
     trim: true
   },
   phone: {
     type: String,
-    required: true,
     trim: true
   },
 
@@ -94,6 +91,12 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     }
+  },
+
+  // Onboarding Status
+  onBoarded: {
+    type: Boolean,
+    default: false
   },
 
   // Account Status

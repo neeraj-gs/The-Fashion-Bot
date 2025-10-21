@@ -31,6 +31,7 @@ export interface User {
     }
     sameAsShipping?: boolean
   }
+  onBoarded: boolean
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -61,16 +62,7 @@ export const isOnboardedState = selector({
     const user = get(userState)
     if (!user) return false
 
-    // Check if user has completed onboarding (has basic details)
-    return !!(
-      user.firstName &&
-      user.lastName &&
-      user.phone &&
-      user.shippingAddress?.addressLine1 &&
-      user.shippingAddress?.city &&
-      user.shippingAddress?.state &&
-      user.shippingAddress?.zipCode &&
-      user.paymentDetails?.cardNumber
-    )
+    // Check onBoarded flag from backend
+    return user.onBoarded === true
   },
 })

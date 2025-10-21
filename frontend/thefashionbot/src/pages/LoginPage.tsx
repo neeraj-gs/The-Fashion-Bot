@@ -33,7 +33,7 @@ export function LoginPage() {
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: { email?: string; password?: string } = {}
-        error.errors.forEach((err) => {
+        error.issues.forEach((err) => {
           if (err.path[0]) {
             fieldErrors[err.path[0] as "email" | "password"] = err.message
           }
@@ -67,10 +67,8 @@ export function LoginPage() {
         setToken(token)
         setUser(user)
 
-        // Check if user needs onboarding
-        const needsOnboarding = !user.firstName || !user.shippingAddress?.addressLine1
-
-        if (needsOnboarding) {
+        // Check if user needs onboarding based on onBoarded flag
+        if (!user.onBoarded) {
           navigate("/onboarding")
         } else {
           navigate("/dashboard")
@@ -103,32 +101,33 @@ export function LoginPage() {
 
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-          <div className="flex gap-2 mb-6">
-            <Button
-              variant={isLogin ? "default" : "ghost"}
-              className={`flex-1 ${isLogin ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
-              onClick={() => {
-                setIsLogin(true)
-                setErrors({})
-                setApiError("")
-              }}
-            >
-              Login
-            </Button>
-            <Button
-              variant={!isLogin ? "default" : "ghost"}
-              className={`flex-1 ${!isLogin ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
-              onClick={() => {
-                setIsLogin(false)
-                setErrors({})
-                setApiError("")
-              }}
-            >
-              Sign Up
-            </Button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={isLogin ? "default" : "ghost"}
+                className={`flex-1 ${isLogin ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
+                onClick={() => {
+                  setIsLogin(true)
+                  setErrors({})
+                  setApiError("")
+                }}
+              >
+                Login
+              </Button>
+              <Button
+                type="button"
+                variant={!isLogin ? "default" : "ghost"}
+                className={`flex-1 ${!isLogin ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
+                onClick={() => {
+                  setIsLogin(false)
+                  setErrors({})
+                  setApiError("")
+                }}
+              >
+                Sign Up
+              </Button>
+            </div>
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">

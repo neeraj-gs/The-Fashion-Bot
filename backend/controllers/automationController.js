@@ -1,4 +1,4 @@
-import { getAutomationService } from "../services/automationService"
+import { getAutomationService } from "../services/automationService.js"
 
 export const startAutomation = async (req, res) => {
   const { storeName, orderData } = req.body
