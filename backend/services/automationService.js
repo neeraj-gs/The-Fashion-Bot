@@ -21,11 +21,12 @@ class BaseAutomation {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled'
-      ]
+        '--disable-blink-features=AutomationControlled',
+        '--start-maximized' // Start browser maximized/fullscreen
+      ],
+      defaultViewport: null // Use full screen dimensions
     })
     this.page = await this.browser.newPage()
-    await this.page.setViewport({ width: 1920, height: 1080 })
   }
 
   log(message) {
@@ -521,8 +522,8 @@ class StanleyAutomation extends BaseAutomation {
       await sleep(2000)
 
       // Level 6: Complete Checkout (COMMENTED OUT FOR SAFETY)
-      // const orderCompleted = await this.completeCheckout()
-      // if (!orderCompleted) throw new Error('Failed at Level 6: Order Completion')
+      const orderCompleted = await this.completeCheckout()
+      if (!orderCompleted) throw new Error('Failed at Level 6: Order Completion')
 
       this.log('✅ All automation steps completed successfully!')
       this.log('⚠️  CHECKOUT COMPLETION IS COMMENTED OUT FOR SAFETY')
