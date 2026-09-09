@@ -1,10 +1,24 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useRecoilState } from "recoil"
-import { Button } from "@/components/ui/button"
+import { AnimatePresence, motion } from "motion/react"
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react"
+import { AppBar } from "@/components/chrome/AppBar"
+import { Button } from "@/components/ui/Button"
+import { Field, SelectField } from "@/components/ui/Field"
+import { Eyebrow } from "@/components/ui/Eyebrow"
+import { PaymentCard } from "@/components/ui/PaymentCard"
 import { userAPI } from "@/lib/api"
 import { userState } from "@/store/authState"
-import { AlertCircle, Sparkles, User, MapPin, CreditCard } from "lucide-react"
+import { COUNTRIES, US_STATES, formatCardNumber } from "@/lib/geo"
+import { EASE_OUT_EXPO } from "@/lib/motion"
+import { cn } from "@/lib/utils"
+
+const STAGES = [
+  { step: 1, label: "Identity", hint: "Who the order is for" },
+  { step: 2, label: "Shipping", hint: "Where it lands" },
+  { step: 3, label: "Payment", hint: "What clears it" },
+]
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -13,8 +27,8 @@ export function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
+  const [cvvFocused, setCvvFocused] = useState(false)
 
-  // Form state
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
@@ -37,7 +51,6 @@ export function OnboardingPage() {
 
   const updateField = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-    // Clear error for this field
     setErrors((prev) => ({ ...prev, [field]: "" }))
   }
 
@@ -48,7 +61,7 @@ export function OnboardingPage() {
       if (!formData.firstName) stepErrors.firstName = "First name is required"
       if (!formData.lastName) stepErrors.lastName = "Last name is required"
       if (!formData.phone || formData.phone.length < 10)
-        stepErrors.phone = "Valid phone number is required"
+        stepErrors.phone = "A reachable phone number is required"
     }
 
     if (currentStep === 2) {
@@ -56,19 +69,19 @@ export function OnboardingPage() {
       if (!formData.city) stepErrors.city = "City is required"
       if (!formData.state) stepErrors.state = "State is required"
       if (!formData.zipCode || formData.zipCode.length < 5)
-        stepErrors.zipCode = "Valid ZIP code is required"
+        stepErrors.zipCode = "A valid ZIP code is required"
     }
 
     if (currentStep === 3) {
       if (!formData.cardNumber || formData.cardNumber.length < 13)
-        stepErrors.cardNumber = "Valid card number is required"
+        stepErrors.cardNumber = "A valid card number is required"
       if (!formData.cardHolderName)
         stepErrors.cardHolderName = "Cardholder name is required"
       if (!/^(0[1-9]|1[0-2])$/.test(formData.expiryMonth))
-        stepErrors.expiryMonth = "Invalid month (01-12)"
+        stepErrors.expiryMonth = "Month must be 01 to 12"
       if (!/^\d{2}$/.test(formData.expiryYear))
-        stepErrors.expiryYear = "Invalid year (YY)"
-      if (!/^\d{3,4}$/.test(formData.cvv)) stepErrors.cvv = "Invalid CVV"
+        stepErrors.expiryYear = "Two digits"
+      if (!/^\d{3,4}$/.test(formData.cvv)) stepErrors.cvv = "Three or four digits"
     }
 
     setErrors(stepErrors)
@@ -76,9 +89,7 @@ export function OnboardingPage() {
   }
 
   const handleNext = () => {
-    if (validateStep(step)) {
-      setStep(step + 1)
-    }
+    if (validateStep(step)) setStep(step + 1)
   }
 
   const handleSubmit = async () => {
@@ -87,19 +98,21 @@ export function OnboardingPage() {
     setIsLoading(true)
     setApiError("")
 
+    const address = {
+      addressLine1: formData.addressLine1,
+      addressLine2: formData.addressLine2,
+      city: formData.city,
+      state: formData.state,
+      zipCode: formData.zipCode,
+      country: formData.country,
+    }
+
     try {
-      const updateData = {
+      const response = await userAPI.updateDetails({
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone,
-        shippingAddress: {
-          addressLine1: formData.addressLine1,
-          addressLine2: formData.addressLine2,
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zipCode,
-          country: formData.country,
-        },
+        shippingAddress: address,
         paymentDetails: {
           cardNumber: formData.cardNumber,
           cardHolderName: formData.cardHolderName,
@@ -107,425 +120,382 @@ export function OnboardingPage() {
           expiryYear: formData.expiryYear,
           cvv: formData.cvv,
           sameAsShipping: formData.sameAsShipping,
-          billingAddress: formData.sameAsShipping
-            ? {
-                addressLine1: formData.addressLine1,
-                addressLine2: formData.addressLine2,
-                city: formData.city,
-                state: formData.state,
-                zipCode: formData.zipCode,
-                country: formData.country,
-              }
-            : undefined,
+          billingAddress: formData.sameAsShipping ? address : undefined,
         },
-      }
-
-      const response = await userAPI.updateDetails(updateData)
+      })
 
       if (response.data.success) {
         setUser(response.data.data.user)
         navigate("/dashboard")
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message =
-        error.response?.data?.message || "Failed to save details. Please try again."
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Could not save your loadout. Try that again."
       setApiError(message)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const stage = STAGES[step - 1]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-4">
-            <Sparkles className="h-4 w-4" />
-            <span>One-Time Setup</span>
+    <div className="min-h-svh bg-canvas">
+      <AppBar minimal />
+
+      <div className="mx-auto grid w-full max-w-[1280px] gap-12 px-6 py-14 lg:grid-cols-[15rem_1fr] lg:gap-16 lg:px-10 lg:py-20">
+        {/* --- stage rail --- */}
+        <aside>
+          <div className="lg:sticky lg:top-28">
+            <Eyebrow index="00">Build your loadout</Eyebrow>
+
+            <ol className="mt-8 border-t border-line">
+              {STAGES.map((item) => {
+                const done = item.step < step
+                const active = item.step === step
+                return (
+                  <li
+                    key={item.step}
+                    className="flex items-start gap-4 border-b border-line py-5"
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 grid size-6 shrink-0 place-items-center border font-mono text-[10px] transition-colors duration-500",
+                        done && "border-jade bg-jade text-void",
+                        active && "border-signal bg-signal text-[#170502]",
+                        !done && !active && "border-line text-faint"
+                      )}
+                    >
+                      {done ? <Check className="size-3.5" /> : item.step}
+                    </span>
+                    <div className="min-w-0">
+                      <p
+                        className={cn(
+                          "font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-500",
+                          active ? "text-bone" : "text-mute"
+                        )}
+                      >
+                        {item.label}
+                      </p>
+                      <p className="mt-1 text-xs text-faint">{item.hint}</p>
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+
+            <p className="mono-sm mt-7 leading-relaxed text-faint">
+              Saved once. Editable from Settings whenever you want.
+            </p>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Complete Your Profile
-          </h1>
-          <p className="text-gray-600">
-            Save your details once and never fill checkout forms again!
-          </p>
-        </div>
+        </aside>
 
-        {/* Progress Bar */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center">
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                  s < step
-                    ? "bg-green-500 text-white"
-                    : s === step
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-200 text-gray-500"
-                }`}
-              >
-                {s < step ? "✓" : s}
-              </div>
-              {s < 3 && (
-                <div
-                  className={`w-16 h-1 ${
-                    s < step ? "bg-green-500" : "bg-gray-200"
-                  }`}
-                />
+        {/* --- the step --- */}
+        <main>
+          <div className="flex items-baseline gap-6">
+            <span className="display text-[clamp(3.5rem,9vw,7rem)] leading-none text-signal">
+              {String(step).padStart(2, "0")}
+            </span>
+            <div>
+              <h1 className="display text-3xl sm:text-4xl">{stage.label}</h1>
+              <p className="mt-2 text-sm text-dim">{stage.hint}</p>
+            </div>
+          </div>
+
+          <div
+            aria-hidden
+            className="mt-9 h-px w-full overflow-hidden bg-line"
+          >
+            <motion.div
+              className="h-full origin-left bg-signal"
+              initial={false}
+              animate={{ scaleX: step / STAGES.length }}
+              transition={{ duration: 0.8, ease: EASE_OUT_EXPO }}
+            />
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.45, ease: EASE_OUT_EXPO }}
+              className="mt-10"
+            >
+              {step === 1 && (
+                <div className="max-w-xl space-y-6">
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <Field
+                      label="First name"
+                      required
+                      autoComplete="given-name"
+                      value={formData.firstName}
+                      onChange={(e) => updateField("firstName", e.target.value)}
+                      error={errors.firstName}
+                      placeholder="Alex"
+                    />
+                    <Field
+                      label="Last name"
+                      required
+                      autoComplete="family-name"
+                      value={formData.lastName}
+                      onChange={(e) => updateField("lastName", e.target.value)}
+                      error={errors.lastName}
+                      placeholder="Mercer"
+                    />
+                  </div>
+                  <Field
+                    label="Phone"
+                    type="tel"
+                    required
+                    autoComplete="tel"
+                    value={formData.phone}
+                    onChange={(e) => updateField("phone", e.target.value)}
+                    error={errors.phone}
+                    hint="Stores use this for delivery updates"
+                    placeholder="5551234567"
+                  />
+                </div>
               )}
-            </div>
-          ))}
-        </div>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-          {/* Step 1: Basic Details */}
-          {step === 1 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 text-indigo-600 mb-4">
-                <User className="h-6 w-6" />
-                <h2 className="text-2xl font-bold">Basic Details</h2>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => updateField("firstName", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.firstName ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="John"
+              {step === 2 && (
+                <div className="max-w-xl space-y-6">
+                  <Field
+                    label="Address line 1"
+                    required
+                    autoComplete="address-line1"
+                    value={formData.addressLine1}
+                    onChange={(e) => updateField("addressLine1", e.target.value)}
+                    error={errors.addressLine1}
+                    placeholder="123 Main Street"
                   />
-                  {errors.firstName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => updateField("lastName", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.lastName ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="Doe"
+                  <Field
+                    label="Address line 2"
+                    autoComplete="address-line2"
+                    value={formData.addressLine2}
+                    onChange={(e) => updateField("addressLine2", e.target.value)}
+                    aside="Optional"
+                    placeholder="Apt 4B"
                   />
-                  {errors.lastName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
-                  )}
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <Field
+                      label="City"
+                      required
+                      autoComplete="address-level2"
+                      value={formData.city}
+                      onChange={(e) => updateField("city", e.target.value)}
+                      error={errors.city}
+                      placeholder="New York"
+                    />
+                    <SelectField
+                      label="State"
+                      required
+                      autoComplete="address-level1"
+                      value={formData.state}
+                      onChange={(e) => updateField("state", e.target.value)}
+                      error={errors.state}
+                    >
+                      <option value="">Select a state</option>
+                      {US_STATES.map((s) => (
+                        <option key={s.code} value={s.code}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <Field
+                      label="ZIP code"
+                      required
+                      autoComplete="postal-code"
+                      value={formData.zipCode}
+                      onChange={(e) => updateField("zipCode", e.target.value)}
+                      error={errors.zipCode}
+                      placeholder="10001"
+                    />
+                    <SelectField
+                      label="Country"
+                      required
+                      autoComplete="country"
+                      value={formData.country}
+                      onChange={(e) => updateField("country", e.target.value)}
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => updateField("phone", e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.phone ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="1234567890"
-                />
-                {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                )}
-              </div>
-            </div>
-          )}
+              {step === 3 && (
+                <div className="grid gap-12 lg:grid-cols-[1fr_20rem] lg:items-start">
+                  <div className="space-y-6">
+                    <Field
+                      label="Card number"
+                      required
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      maxLength={19}
+                      value={formatCardNumber(formData.cardNumber)}
+                      onChange={(e) =>
+                        updateField(
+                          "cardNumber",
+                          e.target.value.replace(/\D/g, "").slice(0, 16)
+                        )
+                      }
+                      error={errors.cardNumber}
+                      placeholder="4242 4242 4242 4242"
+                    />
+                    <Field
+                      label="Cardholder name"
+                      required
+                      autoComplete="cc-name"
+                      value={formData.cardHolderName}
+                      onChange={(e) =>
+                        updateField("cardHolderName", e.target.value)
+                      }
+                      error={errors.cardHolderName}
+                      placeholder="ALEX MERCER"
+                    />
+                    <div className="grid grid-cols-3 gap-4">
+                      <Field
+                        label="Month"
+                        required
+                        inputMode="numeric"
+                        autoComplete="cc-exp-month"
+                        maxLength={2}
+                        value={formData.expiryMonth}
+                        onChange={(e) =>
+                          updateField(
+                            "expiryMonth",
+                            e.target.value.replace(/\D/g, "")
+                          )
+                        }
+                        error={errors.expiryMonth}
+                        placeholder="MM"
+                      />
+                      <Field
+                        label="Year"
+                        required
+                        inputMode="numeric"
+                        autoComplete="cc-exp-year"
+                        maxLength={2}
+                        value={formData.expiryYear}
+                        onChange={(e) =>
+                          updateField(
+                            "expiryYear",
+                            e.target.value.replace(/\D/g, "")
+                          )
+                        }
+                        error={errors.expiryYear}
+                        placeholder="YY"
+                      />
+                      <Field
+                        label="CVV"
+                        required
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        maxLength={4}
+                        value={formData.cvv}
+                        onChange={(e) =>
+                          updateField("cvv", e.target.value.replace(/\D/g, ""))
+                        }
+                        onFocus={() => setCvvFocused(true)}
+                        onBlur={() => setCvvFocused(false)}
+                        error={errors.cvv}
+                        placeholder="123"
+                      />
+                    </div>
 
-          {/* Step 2: Shipping Address */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 text-indigo-600 mb-4">
-                <MapPin className="h-6 w-6" />
-                <h2 className="text-2xl font-bold">Shipping Address</h2>
-              </div>
+                    <label className="flex cursor-pointer items-center gap-3 pt-1">
+                      <input
+                        type="checkbox"
+                        checked={formData.sameAsShipping}
+                        onChange={(e) =>
+                          updateField("sameAsShipping", e.target.checked)
+                        }
+                        className="size-4 accent-[#ff3d18]"
+                      />
+                      <span className="text-sm text-dim">
+                        Billing address is the same as shipping
+                      </span>
+                    </label>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address Line 1 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.addressLine1}
-                  onChange={(e) => updateField("addressLine1", e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.addressLine1 ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="123 Main Street"
-                />
-                {errors.addressLine1 && (
-                  <p className="text-red-500 text-sm mt-1">{errors.addressLine1}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address Line 2 (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.addressLine2}
-                  onChange={(e) => updateField("addressLine2", e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Apt 4B"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => updateField("city", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.city ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="New York"
-                  />
-                  {errors.city && (
-                    <p className="text-red-500 text-sm mt-1">{errors.city}</p>
-                  )}
+                  <div className="lg:sticky lg:top-28">
+                    <PaymentCard
+                      number={formData.cardNumber}
+                      holder={formData.cardHolderName}
+                      month={formData.expiryMonth}
+                      year={formData.expiryYear}
+                      cvv={formData.cvv}
+                      flipped={cvvFocused}
+                    />
+                    <p className="mono-sm mt-4 leading-relaxed text-faint">
+                      This is what the bot will type into the checkout.
+                    </p>
+                  </div>
                 </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State *
-                  </label>
-                  <select
-                    value={formData.state}
-                    onChange={(e) => updateField("state", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.state ? "border-red-500" : "border-gray-300"
-                    }`}
-                  >
-                    <option value="">Select State</option>
-                    <option value="AL">Alabama</option>
-                    <option value="AK">Alaska</option>
-                    <option value="AZ">Arizona</option>
-                    <option value="CA">California</option>
-                    <option value="FL">Florida</option>
-                    <option value="NY">New York</option>
-                    <option value="TX">Texas</option>
-                    {/* Add more states as needed */}
-                  </select>
-                  {errors.state && (
-                    <p className="text-red-500 text-sm mt-1">{errors.state}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ZIP Code *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.zipCode}
-                    onChange={(e) => updateField("zipCode", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.zipCode ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="10001"
-                  />
-                  {errors.zipCode && (
-                    <p className="text-red-500 text-sm mt-1">{errors.zipCode}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Country *
-                  </label>
-                  <select
-                    value={formData.country}
-                    onChange={(e) => updateField("country", e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="USA">United States</option>
-                    <option value="India">India</option>
-                    <option value="Canada">Canada</option>
-                    <option value="UK">United Kingdom</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Payment Details */}
-          {step === 3 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 text-indigo-600 mb-4">
-                <CreditCard className="h-6 w-6" />
-                <h2 className="text-2xl font-bold">Payment Details</h2>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Card Number *
-                </label>
-                <input
-                  type="text"
-                  value={formData.cardNumber}
-                  onChange={(e) => updateField("cardNumber", e.target.value.replace(/\s/g, ""))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.cardNumber ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="1234567890123456"
-                  maxLength={16}
-                />
-                {errors.cardNumber && (
-                  <p className="text-red-500 text-sm mt-1">{errors.cardNumber}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cardholder Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.cardHolderName}
-                  onChange={(e) => updateField("cardHolderName", e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.cardHolderName ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="JOHN DOE"
-                />
-                {errors.cardHolderName && (
-                  <p className="text-red-500 text-sm mt-1">{errors.cardHolderName}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Expiry Month *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.expiryMonth}
-                    onChange={(e) => updateField("expiryMonth", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.expiryMonth ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="MM"
-                    maxLength={2}
-                  />
-                  {errors.expiryMonth && (
-                    <p className="text-red-500 text-sm mt-1">{errors.expiryMonth}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Expiry Year *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.expiryYear}
-                    onChange={(e) => updateField("expiryYear", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.expiryYear ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="YY"
-                    maxLength={2}
-                  />
-                  {errors.expiryYear && (
-                    <p className="text-red-500 text-sm mt-1">{errors.expiryYear}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CVV *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.cvv}
-                    onChange={(e) => updateField("cvv", e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.cvv ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="123"
-                    maxLength={4}
-                  />
-                  {errors.cvv && (
-                    <p className="text-red-500 text-sm mt-1">{errors.cvv}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="sameAsShipping"
-                  checked={formData.sameAsShipping}
-                  onChange={(e) => updateField("sameAsShipping", e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                />
-                <label htmlFor="sameAsShipping" className="text-sm text-gray-700">
-                  Billing address same as shipping address
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* API Error */}
           {apiError && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mt-4">
-              <AlertCircle className="h-5 w-5 text-red-600" />
-              <p className="text-red-600 text-sm">{apiError}</p>
+            <div
+              role="alert"
+              className="mt-8 flex max-w-xl items-start gap-3 border border-signal/40 bg-signal-wash px-4 py-3.5"
+            >
+              <AlertCircle className="mt-px size-4 shrink-0 text-signal" />
+              <p className="mono-sm leading-relaxed text-signal">{apiError}</p>
             </div>
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex gap-4 mt-8">
+          <div className="mt-12 flex flex-col gap-3 sm:flex-row">
             {step > 1 && (
               <Button
                 variant="outline"
+                size="lg"
                 onClick={() => setStep(step - 1)}
-                className="flex-1"
                 disabled={isLoading}
+                className="group"
               >
+                <ArrowLeft className="size-4 transition-transform duration-300 group-hover:-translate-x-1" />
                 Back
               </Button>
             )}
+
             {step < 3 ? (
-              <Button
-                onClick={handleNext}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-              >
-                Next
+              <Button size="lg" onClick={handleNext} className="group sm:min-w-52">
+                Continue
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Button>
             ) : (
               <Button
+                size="lg"
                 onClick={handleSubmit}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                 disabled={isLoading}
+                className="group sm:min-w-52"
               >
-                {isLoading ? "Saving..." : "Complete Setup"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Saving
+                  </>
+                ) : (
+                  <>
+                    Lock in the loadout
+                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+                  </>
+                )}
               </Button>
             )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   )
