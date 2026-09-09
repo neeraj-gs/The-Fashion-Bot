@@ -13,15 +13,26 @@ An AI-powered automated checkout bot that remembers your details and completes p
 ## Tech Stack
 
 ### Frontend
-- React 19 with TypeScript
+- React 18 with TypeScript
 - Vite for build tooling
 - React Router for navigation
 - Recoil for state management
-- Tailwind CSS for styling
-- ShadCN UI components
+- Tailwind CSS v4 for styling
+- three.js + React Three Fiber + drei for the WebGL capture-gate scene
+- Motion for scroll reveals and transitions
 - Zod for form validation
 - Axios for API calls
 - Cookies for authentication
+
+The interface is built on its own design system rather than a component
+library: midnight canvas, a single vermilion accent, hairline instrument
+chrome, and Archivo / Instrument Serif / JetBrains Mono. Tokens live in
+`src/index.css`; primitives in `src/components/ui`.
+
+The landing hero and the checkout "run theatre" share one WebGL scene
+(`src/three/`), loaded behind a `React.lazy` boundary so three.js never blocks
+first paint. It falls back to a static SVG poster when WebGL is unavailable or
+the visitor has asked for reduced motion.
 
 ### Backend
 - Node.js with Express
