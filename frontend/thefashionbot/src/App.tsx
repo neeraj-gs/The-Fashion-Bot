@@ -1,9 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { RecoilRoot } from "recoil"
-import { Navbar } from "@/components/Navbar"
-import { Hero } from "@/components/Hero"
-import { Features } from "@/components/Features"
-import { HowItWorks } from "@/components/HowItWorks"
+import { LandingPage } from "@/pages/LandingPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { DashboardPage } from "@/pages/DashboardPage"
@@ -11,27 +8,16 @@ import { CheckoutPage } from "@/pages/CheckoutPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 
-function LandingPage() {
-  return (
-    <div className="min-h-screen bg-white">
-      <Navbar />
-      <Hero />
-      <Features />
-      <HowItWorks />
-    </div>
-  )
-}
-
 function App() {
   return (
     <RecoilRoot>
       <Router>
         <Routes>
-          {/* Public Routes */}
+          {/* Public */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected Routes */}
+          {/* Protected */}
           <Route
             path="/onboarding"
             element={
@@ -65,7 +51,6 @@ function App() {
             }
           />
 
-          {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
