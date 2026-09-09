@@ -1,47 +1,57 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSetRecoilState } from "recoil"
+import { motion } from "motion/react"
 import { z } from "zod"
-import { Button } from "@/components/ui/button"
+import Cookies from "js-cookie"
+import { AlertCircle, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/Button"
+import { Field } from "@/components/ui/Field"
+import { Segmented } from "@/components/ui/Segmented"
+import { Eyebrow } from "@/components/ui/Eyebrow"
+import { StatusDot } from "@/components/ui/StatusDot"
+import { Mark } from "@/components/chrome/Mark"
+import { GatePoster } from "@/three/GatePoster"
 import { authAPI } from "@/lib/api"
 import { userState, tokenState } from "@/store/authState"
-import Cookies from "js-cookie"
-import { ShoppingBag, AlertCircle } from "lucide-react"
+import { RUN_NO } from "@/lib/site"
+import { EASE_OUT_EXPO } from "@/lib/motion"
 
 const authSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().email("That does not look like an email address"),
+  password: z.string().min(6, "Six characters or more"),
 })
+
+type Mode = "login" | "signup"
 
 export function LoginPage() {
   const navigate = useNavigate()
   const setUser = useSetRecoilState(userState)
   const setToken = useSetRecoilState(tokenState)
 
-  const [isLogin, setIsLogin] = useState(true)
+  const [mode, setMode] = useState<Mode>("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const [apiError, setApiError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  const isLogin = mode === "login"
+
   const validateForm = () => {
-    try {
-      authSchema.parse({ email, password })
+    const result = authSchema.safeParse({ email, password })
+    if (result.success) {
       setErrors({})
       return true
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: { email?: string; password?: string } = {}
-        error.issues.forEach((err) => {
-          if (err.path[0]) {
-            fieldErrors[err.path[0] as "email" | "password"] = err.message
-          }
-        })
-        setErrors(fieldErrors)
-      }
-      return false
     }
+
+    const fieldErrors: { email?: string; password?: string } = {}
+    for (const issue of result.error.issues) {
+      const key = issue.path[0]
+      if (key === "email" || key === "password") fieldErrors[key] = issue.message
+    }
+    setErrors(fieldErrors)
+    return false
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,150 +70,166 @@ export function LoginPage() {
       if (response.data.success) {
         const { user, token } = response.data.data
 
-        // Save token to cookies
         Cookies.set("token", token, { expires: 30 })
-
-        // Update Recoil state
         setToken(token)
         setUser(user)
 
-        // Check if user needs onboarding based on onBoarded flag
-        if (!user.onBoarded) {
-          navigate("/onboarding")
-        } else {
-          navigate("/dashboard")
-        }
+        navigate(user.onBoarded ? "/dashboard" : "/onboarding")
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message =
-        error.response?.data?.message || "An error occurred. Please try again."
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Something went wrong. Try that again."
       setApiError(message)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setErrors({})
+    setApiError("")
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <ShoppingBag className="h-10 w-10 text-indigo-600" />
-            <span className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="grid min-h-svh lg:grid-cols-[1.05fr_1fr]">
+      {/* --- The plate: a still of the gate, and the promise. --- */}
+      <aside className="relative hidden overflow-hidden border-r border-line bg-void lg:block">
+        <GatePoster className="absolute inset-0 size-full opacity-45" />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-void/30"
+        />
+
+        <div className="relative flex h-full flex-col justify-between p-14">
+          <div className="flex items-center gap-2.5">
+            <Mark />
+            <span className="font-display text-sm font-extrabold uppercase tracking-[0.14em] text-bone">
               The Fashion Bot
             </span>
           </div>
-          <p className="text-gray-600">
-            {isLogin ? "Welcome back!" : "Create your account"}
+
+          <div>
+            <p className="display text-[clamp(2.5rem,4vw,4rem)]">
+              Paste a link.
+              <br />
+              Own it in{" "}
+              <span className="counter font-normal tracking-normal">
+                thirty seconds.
+              </span>
+            </p>
+            <p className="mt-7 max-w-md text-sm leading-relaxed text-dim">
+              Your loadout is filled in once. Every checkout after that is a URL
+              and half a minute of nothing to do.
+            </p>
+          </div>
+
+          <p className="mono-label flex items-center gap-2 text-faint">
+            <StatusDot tone="live" />
+            All lanes up &middot; Run no. {RUN_NO}
           </p>
         </div>
+      </aside>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={isLogin ? "default" : "ghost"}
-                className={`flex-1 ${isLogin ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
-                onClick={() => {
-                  setIsLogin(true)
-                  setErrors({})
-                  setApiError("")
-                }}
-              >
-                Login
-              </Button>
-              <Button
-                type="button"
-                variant={!isLogin ? "default" : "ghost"}
-                className={`flex-1 ${!isLogin ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
-                onClick={() => {
-                  setIsLogin(false)
-                  setErrors({})
-                  setApiError("")
-                }}
-              >
-                Sign Up
-              </Button>
-            </div>
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.email ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="you@example.com"
-              />
-              {errors.email && (
-                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-              )}
-            </div>
+      {/* --- The form. --- */}
+      <main className="flex items-center justify-center px-6 py-14 sm:px-10">
+        <motion.div
+          className="w-full max-w-[26rem]"
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: EASE_OUT_EXPO }}
+        >
+          <button
+            onClick={() => navigate("/")}
+            className="mono-label group mb-12 flex items-center gap-2 text-faint transition-colors hover:text-bone"
+          >
+            <ArrowLeft className="size-3.5 transition-transform duration-300 group-hover:-translate-x-1" />
+            Back to the landing
+          </button>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.password ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="••••••••"
-              />
-              {errors.password && (
-                <p className="text-red-500 text-sm mt-1">{errors.password}</p>
-              )}
-            </div>
+          <Eyebrow index="00">{isLogin ? "Sign in" : "New account"}</Eyebrow>
 
-            {/* API Error */}
+          <h1 className="display mt-5 text-4xl sm:text-5xl">
+            {isLogin ? "Welcome back." : "Two minutes."}
+          </h1>
+          <p className="mt-4 text-sm leading-relaxed text-dim">
+            {isLogin
+              ? "Sign in and your loadout is exactly where you left it."
+              : "Make an account, build your loadout, and the bot is ready for the next drop."}
+          </p>
+
+          <div className="mt-10">
+            <Segmented
+              label="Sign in or create an account"
+              value={mode}
+              onChange={switchMode}
+              options={[
+                { value: "login", label: "Sign in" },
+                { value: "signup", label: "Create account" },
+              ]}
+            />
+          </div>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6" noValidate>
+            <Field
+              label="Email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={errors.email}
+              placeholder="you@example.com"
+              disabled={isLoading}
+            />
+
+            <Field
+              label="Password"
+              type="password"
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={errors.password}
+              hint={isLogin ? undefined : "Six characters or more"}
+              placeholder="••••••••"
+              disabled={isLoading}
+            />
+
             {apiError && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-red-600" />
-                <p className="text-red-600 text-sm">{apiError}</p>
+              <div
+                role="alert"
+                className="flex items-start gap-3 border border-signal/40 bg-signal-wash px-4 py-3.5"
+              >
+                <AlertCircle className="mt-px size-4 shrink-0 text-signal" />
+                <p className="mono-sm leading-relaxed text-signal">{apiError}</p>
               </div>
             )}
 
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 py-6 text-lg"
-              disabled={isLoading}
-            >
-              {isLoading ? "Please wait..." : isLogin ? "Login" : "Create Account"}
+            <Button type="submit" size="lg" block disabled={isLoading} className="group">
+              {isLoading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Working
+                </>
+              ) : (
+                <>
+                  {isLogin ? "Sign in" : "Create account"}
+                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </>
+              )}
             </Button>
           </form>
 
-          {/* Additional Info */}
           {!isLogin && (
-            <p className="text-center text-sm text-gray-600 mt-4">
-              After signup, you'll complete a one-time setup to save your details.
+            <p className="mono-sm mt-6 leading-relaxed text-faint">
+              Next you will fill in your loadout: who you are, where it ships,
+              and what pays for it.
             </p>
           )}
-        </div>
-
-        {/* Back to Home */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate("/")}
-            className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
+        </motion.div>
+      </main>
     </div>
   )
 }
